@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"os"
 
@@ -13,8 +12,7 @@ import (
 func main() {
 	var options struct {
 		Args struct {
-			Address  string
-			CertFile string
+			Address string
 		} `positional-args:"yes" required:"1"`
 	}
 
@@ -25,20 +23,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	rawCert, err := os.ReadFile(options.Args.CertFile)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	certs := x509.NewCertPool()
-	ok := certs.AppendCertsFromPEM([]byte(rawCert))
-	if !ok {
-		fmt.Println("can't parse cert")
-		os.Exit(1)
-	}
-
 	config := &tls.Config{
-		RootCAs:            certs,
 		InsecureSkipVerify: true,
 	}
 
@@ -53,7 +38,7 @@ func main() {
 		netScanner := bufio.NewScanner(conn)
 
 		for netScanner.Scan() {
-			fmt.Println(netScanner.Text())
+			fmt.Printf("server: %v\n", netScanner.Text())
 		}
 	}()
 
@@ -61,6 +46,6 @@ func main() {
 
 	for consoleScanner.Scan() {
 		text := consoleScanner.Text()
-		conn.Write([]byte(text))
+		fmt.Fprintf(conn, "%v\n", text)
 	}
 }

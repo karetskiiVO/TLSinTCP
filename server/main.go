@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log"
+	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/jessevdk/go-flags"
 )
 
@@ -29,8 +32,22 @@ func main() {
 		log.Panic(err)
 	}
 
+	godotenv.Load("localenv.env")
+
+	var logger io.Writer
+	keylogFile, exists := os.LookupEnv("SSLKEYLOGFILE")
+	if exists {
+		file, err := os.Create(keylogFile)
+		if err != nil {
+			log.Panic(err)
+		}
+		defer file.Close()
+
+		logger = file
+	}
+
 	config := &tls.Config{
-		//KeyLogWriter: os.Stdout,
+		KeyLogWriter: logger,
 		Certificates: []tls.Certificate{cert},
 	}
 
@@ -42,7 +59,6 @@ func main() {
 
 	for {
 		conn, err := listener.Accept()
-		fmt.Println("ok")
 
 		if err != nil {
 			log.Print(err)
@@ -57,7 +73,7 @@ func main() {
 				text := scanner.Text()
 				log.Printf("%v: %v", conn.RemoteAddr(), text)
 
-				_, err := conn.Write([]byte(text))
+				fmt.Fprintf(conn, "%v\n", text)
 				if err != nil {
 					log.Print(err)
 				}

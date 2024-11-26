@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
+	"fmt"
 	"log"
 
 	"github.com/jessevdk/go-flags"
@@ -11,8 +12,10 @@ import (
 func main() {
 	var options struct {
 		Args struct {
-			Port string
-		}
+			Port     string
+			CertFile string
+			KeyFile  string
+		} `positional-args:"yes" required:"3"`
 	}
 
 	parser := flags.NewParser(&options, flags.Default&(^flags.PrintErrors))
@@ -21,9 +24,17 @@ func main() {
 		log.Panic(err)
 	}
 
-	config := &tls.Config{}
+	cert, err := tls.LoadX509KeyPair(options.Args.CertFile, options.Args.KeyFile)
+	if err != nil {
+		log.Panic(err)
+	}
 
-	listener, err := tls.Listen("tcp", options.Args.Port, config)
+	config := &tls.Config{
+		//KeyLogWriter: os.Stdout,
+		Certificates: []tls.Certificate{cert},
+	}
+
+	listener, err := tls.Listen("tcp", ":"+options.Args.Port, config)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -31,6 +42,7 @@ func main() {
 
 	for {
 		conn, err := listener.Accept()
+		fmt.Println("ok")
 
 		if err != nil {
 			log.Print(err)
@@ -42,7 +54,10 @@ func main() {
 
 			scanner := bufio.NewScanner(conn)
 			for scanner.Scan() {
-				_, err := conn.Write(scanner.Bytes())
+				text := scanner.Text()
+				log.Printf("%v: %v", conn.RemoteAddr(), text)
+
+				_, err := conn.Write([]byte(text))
 				if err != nil {
 					log.Print(err)
 				}
